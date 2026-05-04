@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Character Crush</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .game-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #4a4a4a;
+            margin-bottom: 15px;
+            font-size: 2rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border-radius: 12px;
+        }
+
+        .stat {
+            text-align: center;
+            color: white;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            opacity: 0.9;
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 12px;
+            background: #2d1b4e;
+            cursor: pointer;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+            justify-content: center;
+        }
+
+        button {
+            padding: 12px 30px;
+            font-size: 1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        #shuffleBtn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        #newGameBtn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .message {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 1.1rem;
+            color: #4a4a4a;
+            min-height: 25px;
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .legend-icon {
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🎮 Character Crush</h1>
+        
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-label">Score</div>
+                <div class="stat-value" id="score">0</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Moves</div>
+                <div class="stat-value" id="moves">30</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Target</div>
+                <div class="stat-value" id="target">5000</div>
+            </div>
+        </div>
+
+        <canvas id="gameCanvas" width="480" height="480"></canvas>
+
+        <div class="message" id="message">Match 3 or more characters!</div>
+
+        <div class="controls">
+            <button id="shuffleBtn">🔀 Shuffle</button>
+            <button id="newGameBtn">🎮 New Game</button>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item"><span class="legend-icon">🐱</span> Cat</div>
+            <div class="legend-item"><span class="legend-icon">🐶</span> Dog</div>
+            <div class="legend-item"><span class="legend-icon">🦊</span> Fox</div>
+            <div class="legend-item"><span class="legend-icon">🐼</span> Panda</div>
+            <div class="legend-item"><span class="legend-icon">🐰</span> Bunny</div>
+            <div class="legend-item"><span class="legend-icon">🐸</span> Frog</div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const movesEl = document.getElementById('moves');
+        const targetEl = document.getElementById('target');
+        const messageEl = document.getElementById('message');
+        const shuffleBtn = document.getElementById('shuffleBtn');
+        const newGameBtn = document.getElementById('newGameBtn');
+
+        // Game configuration
+        const GRID_SIZE = 8;
+        const TILE_SIZE = 60;
+        const CHARACTERS = ['🐱', '🐶', '🦊', '🐼', '🐰', '🐸'];
+        const COLORS = [
+            '#FFB7B2', // Cat - pink
+            '#BFEFFF', // Dog - light blue  
+            '#FFDAB9', // Fox - peach
+            '#E8E8E8', // Panda - light gray
+            '#E6E6FA', // Bunny - lavender
+            '#98FB98'  // Frog - pale green
+        ];
+
+        // Game state
+        let grid = [];
+        let score = 0;
+        let moves = 30;
+        let targetScore = 5000;
+        let selectedTile = null;
+        let isAnimating = false;
+        let gameOver = false;
+
+        // Animation state
+        let animations = [];
+
+        // Audio context for sounds
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new AudioContext();
+            }
+        }
+
+        function playSound(frequency, duration, type = 'sine') {
+            if (!audioCtx) return;
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.frequency.value = frequency;
+            oscillator.type = type;
+            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            oscillator.start(audioCtx.currentTime);
+            oscillator.stop(audioCtx.currentTime + duration);
+        }
+
+        function playMatchSound() {
+            playSound(523, 0.1);
+            setTimeout(() => playSound(659, 0.1), 50);
+            setTimeout(() => playSound(784, 0.15), 100);
+        }
+
+        function playSwapSound() {
+            playSound(440, 0.08);
+        }
+
+        function playInvalidSound() {
+            playSound(200, 0.2, 'square');
+        }
+
+        // Initialize the game grid
+        function initGrid() {
+            grid = [];
+            for (let row = 0; row < GRID_SIZE; row++) {
+                grid[row] = [];
+                for (let col = 0; col < GRID_SIZE; col++) {
+                    grid[row][col] = createTile(row, col);
+                }
+            }
+            // Remove any initial matches
+            removeInitialMatches();
+        }
+
+        function createTile(row, col) {
+            return {
+                type: Math.floor(Math.random() * CHARACTERS.length),
+                row: row,
+                col: col,
+                x: col * TILE_SIZE,
+                y: row * TILE_SIZE,
+                scale: 1,
+                alpha: 1
+            };
+        }
+
+        function removeInitialMatches() {
+            let hasMatches = true;
+            let iterations = 0;
+            while (hasMatches && iterations < 100) {
+                hasMatches = false;
+                iterations++;
+                for (let row = 0; row < GRID_SIZE; row++) {
+                    for (let col = 0; col < GRID_SIZE; col++) {
+                        // Check horizontal
+                        if (col >= 2) {
+                            if (grid[row][col].type === grid[row][col-1].type &&
+                                grid[row][col].type === grid[row][col-2].type) {
+                                grid[row][col].type = getValidType(row, col);
+                                hasMatches = true;
+                            }
+                        }
+                        // Check vertical
+                        if (row >= 2) {
+                            if (grid[row][col].type === grid[row-1][col].type &&
+                                grid[row][col].type === grid[row-2][col].type) {
+                                grid[row][col].type = getValidType(row, col);
+                                hasMatches = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        function getValidType(row, col) {
+            const invalidTypes = new Set();
+            
+            // Check left
+            if (col >= 2 && grid[row][col-1].type === grid[row][col-2].type) {
+                invalidTypes.add(grid[row][col-1].type);
+            }
+            // Check up
+            if (row >= 2 && grid[row-1][col].type === grid[row-2][col].type) {
+                invalidTypes.add(grid[row-1][col].type);
+            }
+            
+            const validTypes = [];
+            for (let i = 0; i < CHARACTERS.length; i++) {
+                if (!invalidTypes.has(i)) {
+                    validTypes.push(i);
+                }
+            }
+            
+            return validTypes[Math.floor(Math.random() * validTypes.length)];
+        }
+
+        // Drawing functions
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw grid background
+            for (let row = 0; row < GRID_SIZE; row++) {
+                for (let col = 0; col < GRID_SIZE; col++) {
+                    ctx.fillStyle = (row + col) % 2 === 0 ? '#3d2a5c' : '#4a3470';
+                    ctx.fillRect(col * TILE_SIZE, row * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                }
+            }
+
+            // Draw tiles
+            for (let row = 0; row < GRID_SIZE; row++) {
+                for (let col = 0; col < GRID_SIZE; col++) {
+                    const tile = grid[row][col];
+                    if (tile) {
+                        drawTile(tile);
+                    }
+                }
+            }
+
+            // Draw selection highlight
+            if (selectedTile && !isAnimating) {
+                ctx.strokeStyle = '#FFD700';
+                ctx.lineWidth = 4;
+                ctx.strokeRect(
+                    selectedTile.col * TILE_SIZE + 2,
+                    selectedTile.row * TILE_SIZE + 2,
+                    TILE_SIZE - 4,
+                    TILE_SIZE - 4
+                );
+            }
+        }
+
+        function drawTile(tile) {
+            const centerX = tile.x + TILE_SIZE / 2;
+            const centerY = tile.y + TILE_SIZE / 2;
+            const size = (TILE_SIZE - 8) * tile.scale;
+            
+            ctx.save();
+            ctx.globalAlpha = tile.alpha;
+            
+            // Draw background circle
+            ctx.fillStyle = COLORS[tile.type];
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, size / 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Draw character emoji
+            ctx.font = `${size * 0.6}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(CHARACTERS[tile.type], centerX, centerY);
+            
+            ctx.restore();
+        }
+
+        // Input handling
+        canvas.addEventListener('click', (e) => {
+            if (isAnimating || gameOver) return;
+            
+            initAudio();
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const col = Math.floor(x / TILE_SIZE);
+            const row = Math.floor(y / TILE_SIZE);
+            
+            if (row < 0 || row >= GRID_SIZE || col < 0 || col >= GRID_SIZE) return;
+            
+            const clickedTile = grid[row][col];
+            
+            if (!selectedTile) {
+                selectedTile = clickedTile;
+            } else if (selectedTile === clickedTile) {
+                selectedTile = null;
+            } else if (isAdjacent(selectedTile, clickedTile)) {
+                trySwap(selectedTile, clickedTile);
+            } else {
+                selectedTile = clickedTile;
+            }
+            
+            draw();
+        });
+
+        function isAdjacent(tile1, tile2) {
+            const rowDiff = Math.abs(tile1.row - tile2.row);
+            const colDiff = Math.abs(tile1.col - tile2.col);
+            return (rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1);
+        }
+
+        // Swap logic
+        async function trySwap(tile1, tile2) {
+            isAnimating = true;
+            selectedTile = null;
+            
+            // Perform swap
+            await animateSwap(tile1, tile2);
+            swapTiles(tile1, tile2);
+            
+            // Check for matches
+            const matches = findMatches();
+            
+            if (matches.length > 0) {
+                playSwapSound();
+                moves--;
+                movesEl.textContent = moves;
+                await processMatches();
+            } else {
+                // Swap back
+                playInvalidSound();
+                await animateSwap(tile1, tile2);
+                swapTiles(tile1, tile2);
+                showMessage("No match! Try again.");
+            }
+            
+            checkGameState();
+            isAnimating = false;
+            draw();
+        }
+
+        function swapTiles(tile1, tile2) {
+            // Swap grid positions
+            grid[tile1.row][tile1.col] = tile2;
+            grid[tile2.row][tile2.col] = tile1;
+            
+            // Swap row/col properties
+            const tempRow = tile1.row;
+            const tempCol = tile1.col;
+            tile1.row = tile2.row;
+            tile1.col = tile2.col;
+            tile2.row = tempRow;
+            tile2.col = tempCol;
+        }
+
+        async function animateSwap(tile1, tile2) {
+            const duration = 150;
+            const startTime = Date.now();
+            const tile1Start = { x: tile1.x, y: tile1.y };
+            const tile2Start = { x: tile2.x, y: tile2.y };
+            const tile1End = { x: tile2.col * TILE_SIZE, y: tile2.row * TILE_SIZE };
+            const tile2End = { x: tile1.col * TILE_SIZE, y: tile1.row * TILE_SIZE };
+            
+            return new Promise(resolve => {
+                function animate() {
+                    const elapsed = Date.now() - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    const eased = easeOutQuad(progress);
+                    
+                    tile1.x = tile1Start.x + (tile1End.x - tile1Start.x) * eased;
+                    tile1.y = tile1Start.y + (tile1End.y - tile1Start.y) * eased;
+                    tile2.x = tile2Start.x + (tile2End.x - tile2Start.x) * eased;
+                    tile2.y = tile2Start.y + (tile2End.y - tile2Start.y) * eased;
+                    
+                    draw();
+                    
+                    if (progress < 1) {
+                        requestAnimationFrame(animate);
+                    } else {
+                        resolve();
+                    }
+                }
+                animate();
+            });
+        }
+
+        function easeOutQuad(t) {
+            return t * (2 - t);
+        }
+
+        // Match finding
+        function findMatches() {
+            const matches = [];
+            
+            // Check horizontal matches
+            for (let row = 0; row < GRID_SIZE; row++) {
+                let matchStart = 0;
+                for (let col = 1; col <= GRID_SIZE; col++) {
+                    if (col < GRID_SIZE && grid[row][col].type === grid[row][matchStart].type) {
+                        continue;
+                    }
+                    if (col - matchStart >= 3) {
+                        const match = [];
+                        for (let i = matchStart; i < col; i++) {
+                            match.push(grid[row][i]);
+                        }
+                        matches.push(match);
+                    }
+                    matchStart = col;
+                }
+            }
+            
+            // Check vertical matches
+            for (let col = 0; col < GRID_SIZE; col++) {
+                let matchStart = 0;
+                for (let row = 1; row <= GRID_SIZE; row++) {
+                    if (row < GRID_SIZE && grid[row][col].type === grid[matchStart][col].type) {
+                        continue;
+                    }
+                    if (row - matchStart >= 3) {
+                        const match = [];
+                        for (let i = matchStart; i < row; i++) {
+                            match.push(grid[i][col]);
+                        }
+                        matches.push(match);
+                    }
+                    matchStart = row;
+                }
+            }
+            
+            return matches;
+        }
+
+        async function processMatches() {
+            let matches = findMatches();
+            
+            while (matches.length > 0) {
+                // Calculate score
+                const matchedTiles = new Set();
+                matches.forEach(match => {
+                    match.forEach(tile => matchedTiles.add(tile));
+                });
+                
+                const points = matchedTiles.size * 50;
+                score += points;
+                scoreEl.textContent = score;
+                
+                playMatchSound();
+                showMessage(`+${points} points!`);
+                
+                // Animate removal
+                await animateRemoval(Array.from(matchedTiles));
+                
+                // Remove matched tiles
+                matchedTiles.forEach(tile => {
+                    grid[tile.row][tile.col] = null;
+                });
+                
+                // Drop tiles
+                await dropTiles();
+                
+                // Fill empty spaces
+                await fillEmptySpaces();
+                
+                // Check for new matches
+                matches = findMatches();
+            }
+        }
+
+        async function animateRemoval(tiles) {
+            const duration = 200;
+            const startTime = Date.now();
+            
+            return new Promise(resolve => {
+                function animate() {
+                    const elapsed = Date.now() - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    
+                    tiles.forEach(tile => {
+                        tile.scale = 1 - progress;
+                        tile.alpha = 1 - progress;
+                    });
+                    
+                    draw();
+                    
+                    if (progress < 1) {
+                        requestAnimationFrame(animate);
+                    } else {
+                        resolve();
+                    }
+                }
+                animate();
+            });
+        }
+
+        async function dropTiles() {
+            const drops = [];
+            
+            for (let col = 0; col < GRID_SIZE; col++) {
+                let emptyRow = -1;
+                for (let row = GRID_SIZE - 1; row >= 0; row--) {
+                    if (grid[row][col] === null) {
+                        if (emptyRow === -1) emptyRow = row;
+                    } else if (emptyRow !== -1) {
+                        const tile = grid[row][col];
+                        drops.push({
+                            tile: tile,
+                            fromRow: row,
+                            toRow: emptyRow
+                        });
+                        grid[emptyRow][col] = tile;
+                        grid[row][col] = null;
+                        tile.row = emptyRow;
+                        emptyRow--;
+                    }
+                }
+            }
+            
+            if (drops.length > 0) {
+                await animateDrops(drops);
+            }
+        }
+
+        async function animateDrops(drops) {
+            const duration = 200;
+            const startTime = Date.now();
+            
+            drops.forEach(drop => {
+                drop.startY = drop.fromRow * TILE_SIZE;
+                drop.endY = drop.toRow * TILE_SIZE;
+            });
+            
+            return new Promise(resolve => {
+                function animate() {
+                    const elapsed = Date.now() - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    const eased = easeOutBounce(progress);
+                    
+                    drops.forEach(drop => {
+                        drop.tile.y = drop.startY + (drop.endY - drop.startY) * eased;
+                    });
+                    
+                    draw();
+                    
+                    if (progress < 1) {
+                        requestAnimationFrame(animate);
+                    } else {
+                        resolve();
+                    }
+                }
+                animate();
+            });
+        }
+
+        function easeOutBounce(t) {
+            if (t < 1/2.75) {
+                return 7.5625 * t * t;
+            } else if (t < 2/2.75) {
+                t -= 1.5/2.75;
+                return 7.5625 * t * t + 0.75;
+            } else if (t < 2.5/2.75) {
+                t -= 2.25/2.75;
+                return 7.5625 * t * t + 0.9375;
+            } else {
+                t -= 2.625/2.75;
+                return 7.5625 * t * t + 0.984375;
+            }
+        }
+
+        async function fillEmptySpaces() {
+            const newTiles = [];
+            
+            for (let col = 0; col < GRID_SIZE; col++) {
+                let emptyCount = 0;
+                for (let row = 0; row < GRID_SIZE; row++) {
+                    if (grid[row][col] === null) {
+                        emptyCount++;
+                    }
+                }
+                
+                for (let i = 0; i < emptyCount; i++) {
+                    const row = emptyCount - 1 - i;
+                    const tile = createTile(row, col);
+                    tile.y = -(i + 1) * TILE_SIZE;
+                    grid[row][col] = tile;
+                    newTiles.push({
+                        tile: tile,
+                        toY: row * TILE_SIZE
+                    });
+                }
+            }
+            
+            if (newTiles.length > 0) {
+                await animateNewTiles(newTiles);
+            }
+        }
+
+        async function animateNewTiles(newTiles) {
+            const duration = 300;
+            const startTime = Date.now();
+            
+            newTiles.forEach(item => {
+                item.startY = item.tile.y;
+            });
+            
+            return new Promise(resolve => {
+                function animate() {
+                    const elapsed = Date.now() - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    const eased = easeOutBounce(progress);
+                    
+                    newTiles.forEach(item => {
+                        item.tile.y = item.startY + (item.toY - item.startY) * eased;
+                    });
+                    
+                    draw();
+                    
+                    if (progress < 1) {
+                        requestAnimationFrame(animate);
+                    } else {
+                        resolve();
+                    }
+                }
+                animate();
+            });
+        }
+
+        // Game state management
+        function checkGameState() {
+            if (score >= targetScore) {
+                gameOver = true;
+                showMessage("🎉 You Win! Congratulations!");
+            } else if (moves <= 0) {
+                gameOver = true;
+                showMessage("😢 Game Over! Try again!");
+            } else if (!hasPossibleMoves()) {
+                showMessage("No moves left! Shuffling...");
+                setTimeout(() => shuffleGrid(), 1000);
+            }
+        }
+
+        function hasPossibleMoves() {
+            for (let row = 0; row < GRID_SIZE; row++) {
+                for (let col = 0; col < GRID_SIZE; col++) {
+                    // Check swap right
+                    if (col < GRID_SIZE - 1) {
+                        swapTiles(grid[row][col], grid[row][col + 1]);
+                        const hasMatch = findMatches().length > 0;
+                        swapTiles(grid[row][col], grid[row][col + 1]);
+                        if (hasMatch) return true;
+                    }
+                    // Check swap down
+                    if (row < GRID_SIZE - 1) {
+                        swapTiles(grid[row][col], grid[row + 1][col]);
+                        const hasMatch = findMatches().length > 0;
+                        swapTiles(grid[row][col], grid[row + 1][col]);
+                        if (hasMatch) return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        async function shuffleGrid() {
+            isAnimating = true;
+            
+            // Collect all types
+            const types = [];
+            for (let row = 0; row < GRID_SIZE; row++) {
+                for (let col = 0; col < GRID_SIZE; col++) {
+                    types.push(grid[row][col].type);
+                }
+            }
+            
+            // Shuffle types
+            for (let i = types.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [types[i], types[j]] = [types[j], types[i]];
+            }
+            
+            // Animate shrink
+            const allTiles = [];
+            for (let row = 0; row < GRID_SIZE; row++) {
+                for (let col = 0; col < GRID_SIZE; col++) {
+                    allTiles.push(grid[row][col]);
+                }
+            }
+            await animateRemoval(allTiles);
+            
+            // Reassign types
+            let idx = 0;
+            for (let row = 0; row < GRID_SIZE; row++) {
+                for (let col = 0; col < GRID_SIZE; col++) {
+                    grid[row][col].type = types[idx++];
+                    grid[row][col].scale = 0;
+                    grid[row][col].alpha = 0;
+                }
+            }
+            
+            // Animate grow
+            await animateGrow(allTiles);
+            
+            // Remove any matches that formed
+            removeInitialMatches();
+            
+            // Check if shuffle created valid board
+            if (!hasPossibleMoves()) {
+                await shuffleGrid();
+            }
+            
+            isAnimating = false;
+            showMessage("Board shuffled!");
+            draw();
+        }
+
+        async function animateGrow(tiles) {
+            const duration = 300;
+            const startTime = Date.now();
+            
+            return new Promise(resolve => {
+                function animate() {
+                    const elapsed = Date.now() - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    const eased = easeOutQuad(progress);
+                    
+                    tiles.forEach(tile => {
+                        tile.scale = eased;
+                        tile.alpha = eased;
+                    });
+                    
+                    draw();
+                    
+                    if (progress < 1) {
+                        requestAnimationFrame(animate);
+                    } else {
+                        resolve();
+                    }
+                }
+                animate();
+            });
+        }
+
+        function showMessage(text) {
+            messageEl.textContent = text;
+        }
+
+        function newGame() {
+            score = 0;
+            moves = 30;
+            gameOver = false;
+            selectedTile = null;
+            isAnimating = false;
+            
+            scoreEl.textContent = score;
+            movesEl.textContent = moves;
+            showMessage("Match 3 or more characters!");
+            
+            initGrid();
+            
+            // Ensure there are valid moves
+            if (!hasPossibleMoves()) {
+                initGrid();
+            }
+            
+            draw();
+        }
+
+        // Button handlers
+        shuffleBtn.addEventListener('click', () => {
+            if (!isAnimating && !gameOver) {
+                initAudio();
+                shuffleGrid();
+            }
+        });
+
+        newGameBtn.addEventListener('click', () => {
+            initAudio();
+            newGame();
+        });
+
+        // Start the game
+        newGame();
+    </script>
+</body>
+</html>
